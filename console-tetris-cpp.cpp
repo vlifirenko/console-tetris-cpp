@@ -1,5 +1,6 @@
 #include <iostream>
 using namespace std;
+#include <thread>
 
 #include <Windows.h>
 
@@ -30,21 +31,27 @@ int Rotate(int px, int py, int r)
 
 bool DoesPieceFit(int nTetromino, int nRotation, int nPosX, int nPosY)
 {
+	// All Field cells >0 are occupied
 	for (int px = 0; px < 4; px++)
 		for (int py = 0; py < 4; py++)
 		{
-			// get index into piece
+			// Get index into piece
 			int pi = Rotate(px, py, nRotation);
 
-			// get index into field
-			int fi = (nPosX + py) * nFieldWidth + (nPosX + px);
+			// Get index into field
+			int fi = (nPosY + py) * nFieldWidth + (nPosX + px);
 
-			if (nPosX+px>=0&&nPosX+px<nFieldWidth)
+			// Check that test is in bounds. Note out of bounds does
+			// not necessarily mean a fail, as the long vertical piece
+			// can have cells that lie outside the boundary, so we'll
+			// just ignore them
+			if (nPosX + px >= 0 && nPosX + px < nFieldWidth)
 			{
 				if (nPosY + py >= 0 && nPosY + py < nFieldHeight)
 				{
-					if (tetromino[nTetromino][pi] == L'X' && pField[fi] != 0)
-						return false;	// fail on first hit
+					// In Bounds so do collision check
+					if (tetromino[nTetromino][pi] != L'.' && pField[fi] != 0)
+						return false; // fail on first hit
 				}
 			}
 		}
@@ -81,14 +88,31 @@ int main()
 	int nCurrentRotation = 0;
 	int nCurrentX = nFieldWidth / 2;
 	int nCurrentY = 0;
+	
+	bool bKey[4];
+	bool bRotateHold = false;
 
 	while (!bGameOver)
 	{
 		// game timing
+		this_thread::sleep_for(50ms);
 
 		// input
+		for (int k = 0; k < 4; k++)								    // R   L   D Z
+			bKey[k] = (0x8000 & GetAsyncKeyState((unsigned char)("\x27\x25\x28Z"[k]))) != 0;
 
 		// game logic
+		nCurrentX += (bKey[0] && DoesPieceFit(nCurrentPiece, nCurrentRotation, nCurrentX + 1, nCurrentY)) ? 1 : 0;
+		nCurrentX -= (bKey[1] && DoesPieceFit(nCurrentPiece, nCurrentRotation, nCurrentX - 1, nCurrentY)) ? 1 : 0;
+		nCurrentY += (bKey[2] && DoesPieceFit(nCurrentPiece, nCurrentRotation, nCurrentX, nCurrentY + 1)) ? 1 : 0;
+
+		if (bKey[3])
+		{
+			nCurrentRotation += (!bRotateHold && DoesPieceFit(nCurrentPiece, nCurrentRotation + 1, nCurrentX, nCurrentY)) ? 1 : 0;
+			bRotateHold = true;
+		}
+		else
+			bRotateHold = false;
 
 		// render output
 
